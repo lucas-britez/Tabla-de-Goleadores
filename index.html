@@ -15,55 +15,54 @@
             -webkit-font-smoothing: antialiased;
             color: white;
             margin: 0;
+            overflow-x: hidden;
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        ::-webkit-scrollbar { width: 8px; }
+        
+        /* Animaciones de entrada */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* Transición suave para el reordenamiento de la tabla */
+        tr { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0c; }
         ::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #16a34a; }
+        
+        .glass { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- Dependencias -->
+    <!-- React y Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const { motion, AnimatePresence } = window.Motion;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        // Componente para Iconos de Lucide
-        const Icon = ({ name, className, size = 24 }) => {
-            const ref = useRef(null);
+        // Componente de Icono Robusto
+        const Icon = ({ name, className = "", size = 16 }) => {
+            const iconRef = useRef(null);
             useEffect(() => {
-                if (ref.current && lucide.icons[name]) {
-                    ref.current.innerHTML = lucide.icons[name].toSvg({
-                        class: className,
-                        width: size,
-                        height: size
-                    });
+                if (iconRef.current && window.lucide) {
+                    const iconData = window.lucide.icons[name];
+                    if (iconData) {
+                        iconRef.current.innerHTML = iconData.toSvg({
+                            width: size,
+                            height: size,
+                            class: className
+                        });
+                    }
                 }
             }, [name, className, size]);
-            return <span ref={ref} className="inline-block leading-none" />;
+            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
         };
 
         const STADIUMS = [
@@ -111,8 +110,8 @@
             const [activeCategory, setActiveCategory] = useState('Todas');
             const titleInputRef = useRef(null);
 
-            const categories = ['Todas', ...Array.from(new Set(STADIUMS.map(s => s.category)))];
-            const filteredStadiums = activeCategory === 'Todas' ? STADIUMS : STADIUMS.filter(s => s.category === activeCategory);
+            const categories = useMemo(() => ['Todas', ...Array.from(new Set(STADIUMS.map(s => s.category)))], []);
+            const filteredStadiums = useMemo(() => activeCategory === 'Todas' ? STADIUMS : STADIUMS.filter(s => s.category === activeCategory), [activeCategory]);
 
             useEffect(() => { localStorage.setItem('fc-view', view); }, [view]);
             useEffect(() => { localStorage.setItem('fc-background', background); }, [background]);
@@ -135,12 +134,12 @@
             };
             const resetGoals = () => { setPlayers(prev => prev.map(p => ({ ...p, goals: 0 }))); setShowResetConfirm(false); };
             const removePlayer = (id) => { setPlayers(prev => prev.filter(p => p.id !== id)); };
-            const sortedPlayers = [...players].sort((a, b) => b.goals - a.goals);
+            const sortedPlayers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals), [players]);
 
             if (view === 'selector') {
                 return (
-                    <div className="min-h-screen bg-[#0a0a0c] bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent)] text-white font-sans p-4 flex flex-col items-center">
-                        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-5xl w-full mt-8">
+                    <div className="min-h-screen bg-[#0a0a0c] bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent)] p-4 flex flex-col items-center">
+                        <div className="max-w-5xl w-full mt-8 animate-fade-in">
                             <header className="text-center mb-8">
                                 <Icon name="Trophy" className="text-yellow-500 mx-auto mb-3" size={40} />
                                 <h1 className="text-2xl font-black tracking-tighter uppercase italic">Selector de Estadios</h1>
@@ -156,7 +155,7 @@
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10 max-h-[60vh] overflow-y-auto p-2">
                                 {filteredStadiums.map((stadium) => (
                                     <button key={stadium.id} onClick={() => selectStadium(stadium.url)} className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-green-500/50 transition-all text-left">
-                                        <img src={stadium.url} alt={stadium.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
+                                        <img src={stadium.url} alt={stadium.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" loading="lazy" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                                         <div className="absolute bottom-2 left-2 right-2 flex flex-col">
                                             <span className="text-[8px] font-black uppercase tracking-widest text-green-500 mb-0.5">{stadium.category}</span>
@@ -171,20 +170,20 @@
                                     <Icon name="ChevronRight" size={16} />
                                 </button>
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen bg-cover bg-center bg-no-repeat text-white font-sans selection:bg-green-500/30" style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${background})` }}>
-                    <main className="max-w-3xl mx-auto px-2 py-4">
+                <div className="min-h-screen bg-cover bg-center bg-no-repeat selection:bg-green-500/30" style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${background})` }}>
+                    <main className="max-w-3xl mx-auto px-2 py-4 animate-fade-in">
                         <header className="flex items-center justify-between mb-4 px-2">
                             <div className="flex items-center gap-3">
                                 {isEditingTitle ? (
-                                    <input ref={titleInputRef} type="text" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => setIsEditingTitle(false)} onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)} className="text-lg font-black bg-transparent border-b border-green-500 outline-none italic uppercase" />
+                                    <input ref={titleInputRef} type="text" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => setIsEditingTitle(false)} onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)} className="text-lg font-black bg-transparent border-b border-green-500 outline-none italic uppercase text-white" />
                                 ) : (
-                                    <h1 onClick={() => setIsEditingTitle(true)} className="text-lg font-black cursor-pointer hover:text-green-400 transition-colors italic uppercase tracking-tight">{title}</h1>
+                                    <h1 onClick={() => setIsEditingTitle(true)} className="text-lg font-black cursor-pointer hover:text-green-400 transition-colors italic uppercase tracking-tight text-white">{title}</h1>
                                 )}
                             </div>
                             <button onClick={() => setView('selector')} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white" title="Cambiar Estadio">
@@ -193,14 +192,14 @@
                         </header>
                         <section className="mb-4 px-2">
                             <form onSubmit={addPlayer} className="flex gap-1">
-                                <input type="text" placeholder="Nuevo jugador..." value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} className="flex-1 h-8 px-3 text-xs bg-white/5 border border-white/10 rounded-md outline-none focus:border-green-500/50 transition-all" />
-                                <button type="submit" className="h-8 px-4 bg-green-600 hover:bg-green-500 text-[10px] font-black uppercase tracking-tighter rounded-md transition-all flex items-center gap-1">
+                                <input type="text" placeholder="Nuevo jugador..." value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} className="flex-1 h-8 px-3 text-xs bg-black/50 text-white border border-white/10 rounded-md outline-none focus:border-green-500/50 transition-all" />
+                                <button type="submit" className="h-8 px-4 bg-green-600 hover:bg-green-500 text-white text-[10px] font-black uppercase tracking-tighter rounded-md transition-all flex items-center gap-1">
                                     <Icon name="UserPlus" size={12} />
                                     Añadir
                                 </button>
                             </form>
                         </section>
-                        <section className="bg-black/70 backdrop-blur-md rounded-lg border border-white/5 overflow-hidden">
+                        <section className="glass rounded-lg overflow-hidden">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-white/5 border-b border-white/10">
@@ -211,30 +210,28 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <AnimatePresence mode="popLayout">
-                                        {sortedPlayers.map((player, index) => (
-                                            <motion.tr key={player.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${index === 0 ? 'bg-green-500/5' : ''}`}>
-                                                <td className="py-1.5 px-3 text-center">
-                                                    <span className={`inline-block w-5 h-5 leading-5 text-[10px] font-black rounded ${index === 0 ? 'bg-yellow-500 text-black' : index === 1 ? 'bg-gray-300 text-black' : index === 2 ? 'bg-orange-600 text-white' : 'bg-white/10 text-white/60'}`}>{index + 1}</span>
-                                                </td>
-                                                <td className="py-1.5 px-3">
-                                                    <span className="text-xs font-bold uppercase tracking-tight block truncate max-w-[200px] sm:max-w-none">{player.name}</span>
-                                                </td>
-                                                <td className="py-1.5 px-3 text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Icon name="Target" size={12} className={index === 0 ? 'text-green-400' : 'text-white/20'} />
-                                                        <span className="text-xs font-mono font-bold">{player.goals}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-1.5 px-3 text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <button onClick={() => incrementGoals(player.id)} className="w-7 h-7 flex items-center justify-center bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white rounded transition-all active:scale-90"><Icon name="Plus" size={16} /></button>
-                                                        <button onClick={() => removePlayer(player.id)} className="w-7 h-7 flex items-center justify-center text-white/10 hover:text-red-500 hover:bg-red-500/10 rounded transition-all"><Icon name="Trash2" size={14} /></button>
-                                                    </div>
-                                                </td>
-                                            </motion.tr>
-                                        ))}
-                                    </AnimatePresence>
+                                    {sortedPlayers.map((player, index) => (
+                                        <tr key={player.id} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${index === 0 ? 'bg-green-500/10' : ''}`}>
+                                            <td className="py-1.5 px-3 text-center">
+                                                <span className={`inline-block w-5 h-5 leading-5 text-[10px] font-black rounded ${index === 0 ? 'bg-yellow-500 text-black' : index === 1 ? 'bg-gray-300 text-black' : index === 2 ? 'bg-orange-600 text-white' : 'bg-white/10 text-white/60'}`}>{index + 1}</span>
+                                            </td>
+                                            <td className="py-1.5 px-3">
+                                                <span className="text-xs font-bold uppercase tracking-tight block truncate max-w-[150px] sm:max-w-none text-white">{player.name}</span>
+                                            </td>
+                                            <td className="py-1.5 px-3 text-center">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <Icon name="Target" size={12} className={index === 0 ? 'text-green-400' : 'text-white/20'} />
+                                                    <span className="text-xs font-mono font-bold text-white">{player.goals}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-1.5 px-3 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => incrementGoals(player.id)} className="w-7 h-7 flex items-center justify-center bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white rounded transition-all active:scale-90"><Icon name="Plus" size={16} /></button>
+                                                    <button onClick={() => removePlayer(player.id)} className="w-7 h-7 flex items-center justify-center text-white/10 hover:text-red-500 hover:bg-red-500/10 rounded transition-all"><Icon name="Trash2" size={14} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                             {players.length === 0 && <div className="py-12 text-center text-[10px] font-black uppercase tracking-widest text-white/20 italic">Sin registros en la base de datos</div>}
@@ -242,7 +239,7 @@
                         {players.length > 0 && (
                             <footer className="mt-6 flex flex-col items-center gap-3">
                                 {showResetConfirm ? (
-                                    <div className="flex items-center gap-3 p-2 rounded-lg bg-red-500/10 border border-red-500/20 backdrop-blur-md">
+                                    <div className="glass flex items-center gap-3 p-2 rounded-lg border-red-500/20">
                                         <span className="text-[10px] font-black uppercase tracking-tighter text-red-400">¿Confirmar reset?</span>
                                         <div className="flex gap-1">
                                             <button onClick={resetGoals} className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black uppercase rounded transition-all">Reset</button>
