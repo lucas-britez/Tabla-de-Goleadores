@@ -4,263 +4,243 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FC Mobile Scorer Tracker</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            background-color: #0a0a0c;
-            font-family: 'Outfit', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            color: white;
-            margin: 0;
-            overflow-x: hidden;
-        }
+        [x-cloak] { display: none !important; }
+        body { background-color: #0a0a0c; font-family: 'Outfit', sans-serif; color: white; margin: 0; overflow-x: hidden; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        
-        /* Animaciones de entrada */
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        
-        /* Transición suave para el reordenamiento de la tabla */
-        tr { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-
+        .glass { background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        tr { transition: all 0.3s ease; }
+        .stadium-card:hover img { transform: scale(1.05); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a0a0c; }
         ::-webkit-scrollbar-thumb { background: #22c55e; border-radius: 10px; }
-        
-        .glass { background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body x-data="trackerApp()" x-init="init()">
 
-    <!-- React y Babel -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PANTALLA DE CARGA / SELECTOR -->
+    <template x-if="view === 'selector'">
+        <div class="min-h-screen bg-[#0a0a0c] p-6 flex flex-col items-center" x-transition>
+            <div class="max-w-5xl w-full mt-8">
+                <header class="text-center mb-10">
+                    <div class="text-yellow-500 flex justify-center mb-4">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                    </div>
+                    <h1 class="text-3xl font-black uppercase italic tracking-tighter">Selector de Estadios</h1>
+                    <p class="text-white/40 text-sm mt-2">Personaliza tu mesa de control</p>
+                </header>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+                <!-- Filtros -->
+                <div class="flex flex-wrap justify-center gap-2 mb-8">
+                    <template x-for="cat in categories">
+                        <button @click="activeCategory = cat" 
+                                :class="activeCategory === cat ? 'bg-green-600 border-green-500' : 'bg-white/5 border-white/10 text-white/40'"
+                                class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all"
+                                x-text="cat"></button>
+                    </template>
+                </div>
 
-        // Componente de Icono Robusto
-        const Icon = ({ name, className = "", size = 16 }) => {
-            const iconRef = useRef(null);
-            useEffect(() => {
-                if (iconRef.current && window.lucide) {
-                    const iconData = window.lucide.icons[name];
-                    if (iconData) {
-                        iconRef.current.innerHTML = iconData.toSvg({
-                            width: size,
-                            height: size,
-                            class: className
-                        });
-                    }
-                }
-            }, [name, className, size]);
-            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
-        };
-
-        const STADIUMS = [
-            { id: 'default', name: 'Predeterminado', url: 'https://i.ibb.co/m5VmNDHP/concepto-hacer-deporte-23-2151937746-1.jpg', category: 'General' },
-            { id: 'messi', name: 'Messi', url: 'https://i.ibb.co/GfRRRzxn/wp12392314.png', category: 'Futbolistas' },
-            { id: 'monumental1', name: 'Mâs Monumental', url: 'https://i.ibb.co/0pK28kyy/Screenshot-20260327-004333-Google-1.jpg', category: 'LPF' },
-            { id: 'monumental2', name: 'Mâs Monumental (foto 2)', url: 'https://i.ibb.co/7t5twpNg/HD-wallpaper-river-el-monumental-river-plate.jpg', category: 'LPF' },
-            { id: 'bombonera', name: 'Bombonera', url: 'https://i.ibb.co/7xNwgCfm/9504e79e249033d4d04e227a622f89df.jpg', category: 'LPF' },
-            { id: 'libertadores', name: 'Libertadores de América', url: 'https://i.ibb.co/HLhNvtJc/f919f8f8a600110daa86016c8d8e39c6.jpg', category: 'LPF' },
-            { id: 'cilindro', name: 'Cilindro de Avellaneda', url: 'https://i.ibb.co/Mxmn1bt7/8c0613d8dd1432fee122287be21a2fff.jpg', category: 'LPF' },
-            { id: 'gasometro', name: 'El Gasómetro', url: 'https://i.ibb.co/p6f57pfG/82084278f79cff23617f50a45a4afb14.jpg', category: 'LPF' },
-            { id: 'neoquimica', name: 'Neo Química Arena', url: 'https://i.ibb.co/yBWbpMPh/962564b5eeea4f0da4f26b898b1e0325.jpg', category: 'Brasileirão' },
-            { id: 'allianz', name: 'Allianz Parque', url: 'https://i.ibb.co/8nCLp4BD/66b8da8ebdbd647c76497a0a20ff30d0.jpg', category: 'Brasileirão' },
-            { id: 'morumbis', name: 'Morumbis', url: 'https://i.ibb.co/rG1QKfpB/a8317f6d199347a079ededa55d9f39b6.jpg', category: 'Brasileirão' },
-            { id: 'campnou', name: 'Camp Nou', url: 'https://i.ibb.co/39nSr3QF/8b6ac40ce6862da956c40fffc9bd454a.jpg', category: 'La Liga' },
-            { id: 'bernabeu', name: 'Santiago Bernabéu', url: 'https://i.ibb.co/nMMshX5T/66d0d2d25a8941f58853fdf690592b59.jpg', category: 'La Liga' },
-            { id: 'metropolitano', name: 'Metropolitano', url: 'https://i.ibb.co/GvndxYFG/f65212658964e531f7d6f4a4a2331712.jpg', category: 'La Liga' },
-            { id: 'psg', name: 'PSG', url: 'https://i.ibb.co/BbhD1L9/401f894d753b4a9faaf78f8481aecedc.jpg', category: 'Ligue 1' },
-            { id: 'franchi', name: 'Stadio Artemio Franchi', url: 'https://i.ibb.co/QFcGpGnq/HD-wallpaper-stadio-artemio-franchi-acf-fiorentina-stadium-florence-italy-sports-arena-fans-italian.jpg', category: 'Serie A' },
-            { id: 'sansiro', name: 'San Siro', url: 'https://i.ibb.co/PbVtWYM/198412180c7bcb6567fe91fc5949864c.jpg', category: 'Serie A' },
-            { id: 'torino', name: 'Stadio Olimpico Grande Torino', url: 'https://i.ibb.co/hJM9pFWC/general-view-stadio-olimpico-grande-torino-during-440nw-13074022ak-1.jpg', category: 'Serie A' },
-            { id: 'bayern', name: 'Bayern Múnich', url: 'https://i.ibb.co/60G9014h/3e7227d504ea883430ddfc75f21926f6.jpg', category: 'Bundesliga' },
-            { id: 'dortmund', name: 'Borussia Dortmund', url: 'https://i.ibb.co/84nF6dWM/HD-wallpaper-at-signal-iduna-park-borussia-dortmund-stadium.jpg', category: 'Bundesliga' },
-            { id: 'leverkusen', name: 'Bayer 04 Leverkusen', url: 'https://i.ibb.co/yJ3Jc3f/poster.jpg', category: 'Bundesliga' },
-            { id: 'mancity', name: 'Manchester City', url: 'https://i.ibb.co/9Hckp5Sh/46590e615b1d227322132dd4f018d975.jpg', category: 'Premier League' },
-            { id: 'arsenal', name: 'Arsenal', url: 'https://i.ibb.co/vCspY0X5/bf6c1d428a5391f5da214387e48ef6dc.jpg', category: 'Premier League' },
-            { id: 'chelsea', name: 'Chelsea', url: 'https://i.ibb.co/ksysfgyz/c30aed75acb6968e103e05044fd6e273.jpg', category: 'Premier League' },
-            { id: 'intermiami', name: 'Inter Miami', url: 'https://i.ibb.co/KjMxsZHL/FUTBOL-MESSI-INTER-PARTIDO-scaled-e1690304081152-1.jpg', category: 'MLS' },
-            { id: 'sounders', name: 'Seattle Sounders', url: 'https://i.ibb.co/xSktLVN1/41d87e429d4a30f22a6cf64b36f5b66b.jpg', category: 'MLS' },
-            { id: 'lafc', name: 'Los Ángeles FC', url: 'https://i.ibb.co/sJjW4m7L/Screenshot-20260327-010744-Google-1.jpg', category: 'MLS' },
-            { id: 'azteca', name: 'Estadio Azteca', url: 'https://i.ibb.co/ynjzH73p/e5ea5364.jpg', category: 'Liga MX' },
-        ];
-
-        function App() {
-            const [view, setView] = useState(() => localStorage.getItem('fc-view') || 'selector');
-            const [background, setBackground] = useState(() => localStorage.getItem('fc-background') || STADIUMS[0].url);
-            const [title, setTitle] = useState(() => localStorage.getItem('fc-scorer-title') || 'Temporada Febrero-Marzo');
-            const [players, setPlayers] = useState(() => {
-                const saved = localStorage.getItem('fc-scorer-players');
-                return saved ? JSON.parse(saved) : [];
-            });
-            const [newPlayerName, setNewPlayerName] = useState('');
-            const [isEditingTitle, setIsEditingTitle] = useState(false);
-            const [showResetConfirm, setShowResetConfirm] = useState(false);
-            const [activeCategory, setActiveCategory] = useState('Todas');
-            const titleInputRef = useRef(null);
-
-            const categories = useMemo(() => ['Todas', ...Array.from(new Set(STADIUMS.map(s => s.category)))], []);
-            const filteredStadiums = useMemo(() => activeCategory === 'Todas' ? STADIUMS : STADIUMS.filter(s => s.category === activeCategory), [activeCategory]);
-
-            useEffect(() => { localStorage.setItem('fc-view', view); }, [view]);
-            useEffect(() => { localStorage.setItem('fc-background', background); }, [background]);
-            useEffect(() => { localStorage.setItem('fc-scorer-title', title); }, [title]);
-            useEffect(() => { localStorage.setItem('fc-scorer-players', JSON.stringify(players)); }, [players]);
-
-            useEffect(() => {
-                if (isEditingTitle && titleInputRef.current) titleInputRef.current.focus();
-            }, [isEditingTitle]);
-
-            const selectStadium = (url) => { setBackground(url); setView('tracker'); };
-            const addPlayer = (e) => {
-                e.preventDefault();
-                if (!newPlayerName.trim()) return;
-                setPlayers([...players, { id: Date.now().toString(), name: newPlayerName.trim(), goals: 0 }]);
-                setNewPlayerName('');
-            };
-            const incrementGoals = (id) => {
-                setPlayers(prev => prev.map(p => p.id === id ? { ...p, goals: p.goals + 1 } : p));
-            };
-            const resetGoals = () => { setPlayers(prev => prev.map(p => ({ ...p, goals: 0 }))); setShowResetConfirm(false); };
-            const removePlayer = (id) => { setPlayers(prev => prev.filter(p => p.id !== id)); };
-            const sortedPlayers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals), [players]);
-
-            if (view === 'selector') {
-                return (
-                    <div className="min-h-screen bg-[#0a0a0c] bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent)] p-4 flex flex-col items-center">
-                        <div className="max-w-5xl w-full mt-8 animate-fade-in">
-                            <header className="text-center mb-8">
-                                <Icon name="Trophy" className="text-yellow-500 mx-auto mb-3" size={40} />
-                                <h1 className="text-2xl font-black tracking-tighter uppercase italic">Selector de Estadios</h1>
-                                <p className="text-white/40 text-xs mt-1">Elige el escenario para tu tabla de goleadores</p>
-                            </header>
-                            <div className="flex flex-wrap justify-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-                                {categories.map(cat => (
-                                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${activeCategory === cat ? 'bg-green-600 border-green-500 text-white' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10'}`}>
-                                        {cat}
-                                    </button>
-                                ))}
+                <!-- Grid de Estadios -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+                    <template x-for="stadium in filteredStadiums()" :key="stadium.id">
+                        <button @click="selectStadium(stadium.url)" class="stadium-card group relative aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-green-500/50 transition-all">
+                            <img :src="stadium.url" class="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-all duration-500">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+                            <div class="absolute bottom-2 left-3">
+                                <p class="text-[8px] font-black text-green-500 uppercase" x-text="stadium.category"></p>
+                                <p class="text-[10px] font-bold uppercase italic" x-text="stadium.name"></p>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10 max-h-[60vh] overflow-y-auto p-2">
-                                {filteredStadiums.map((stadium) => (
-                                    <button key={stadium.id} onClick={() => selectStadium(stadium.url)} className="group relative aspect-video rounded-lg overflow-hidden border border-white/10 hover:border-green-500/50 transition-all text-left">
-                                        <img src={stadium.url} alt={stadium.name} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" loading="lazy" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                                        <div className="absolute bottom-2 left-2 right-2 flex flex-col">
-                                            <span className="text-[8px] font-black uppercase tracking-widest text-green-500 mb-0.5">{stadium.category}</span>
-                                            <span className="text-[10px] font-bold uppercase italic tracking-tight leading-tight truncate">{stadium.name}</span>
+                        </button>
+                    </template>
+                </div>
+
+                <div class="flex justify-center pb-10">
+                    <button @click="selectStadium(stadiums[0].url)" class="px-10 py-3 bg-white/5 border border-white/10 rounded-full text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                        Omitir y usar predeterminado
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- TABLA DE GOLEADORES -->
+    <template x-if="view === 'tracker'">
+        <div class="min-h-screen bg-cover bg-center bg-no-repeat" 
+             :style="'background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(' + background + ')'">
+            
+            <main class="max-w-3xl mx-auto px-2 py-6">
+                <!-- Header -->
+                <header class="flex items-center justify-between mb-6 px-2">
+                    <div class="flex items-center gap-2">
+                        <template x-if="!isEditingTitle">
+                            <h1 @click="isEditingTitle = true" class="text-xl font-black italic uppercase cursor-pointer hover:text-green-400 transition-colors" x-text="title"></h1>
+                        </template>
+                        <template x-if="isEditingTitle">
+                            <input x-model="title" @blur="isEditingTitle = false" @keyup.enter="isEditingTitle = false" class="bg-transparent border-b border-green-500 outline-none text-xl font-black italic uppercase text-white">
+                        </template>
+                    </div>
+                    <button @click="view = 'selector'" class="p-2 text-white/40 hover:text-white transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </header>
+
+                <!-- Input -->
+                <div class="mb-6 px-2">
+                    <form @submit.prevent="addPlayer" class="flex gap-2">
+                        <input x-model="newPlayerName" type="text" placeholder="Nuevo goleador..." class="flex-1 h-10 px-4 bg-black/60 border border-white/10 rounded-lg outline-none focus:border-green-500/50 text-sm">
+                        <button type="submit" class="px-6 bg-green-600 hover:bg-green-500 rounded-lg font-black uppercase text-[10px] tracking-widest transition-all">Añadir</button>
+                    </form>
+                </div>
+
+                <!-- Tabla -->
+                <div class="glass rounded-xl overflow-hidden shadow-2xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-white/5 border-b border-white/10">
+                                <th class="py-3 px-4 text-[10px] font-black uppercase text-white/40 w-12 text-center">Pos</th>
+                                <th class="py-3 px-4 text-[10px] font-black uppercase text-white/40">Jugador</th>
+                                <th class="py-3 px-4 text-[10px] font-black uppercase text-white/40 w-20 text-center">Goles</th>
+                                <th class="py-3 px-4 text-[10px] font-black uppercase text-white/40 w-24 text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(player, index) in sortedPlayers()" :key="player.id">
+                                <tr class="border-b border-white/5 hover:bg-white/5" :class="index === 0 ? 'bg-green-500/10' : ''">
+                                    <td class="py-2 px-4 text-center">
+                                        <span class="inline-block w-6 h-6 leading-6 text-[10px] font-black rounded" 
+                                              :class="index === 0 ? 'bg-yellow-500 text-black' : index === 1 ? 'bg-gray-300 text-black' : index === 2 ? 'bg-orange-600 text-white' : 'bg-white/10 text-white/60'"
+                                              x-text="index + 1"></span>
+                                    </td>
+                                    <td class="py-2 px-4">
+                                        <span class="text-xs font-bold uppercase tracking-tight truncate block max-w-[140px] sm:max-w-none" x-text="player.name"></span>
+                                    </td>
+                                    <td class="py-2 px-4 text-center">
+                                        <span class="text-sm font-mono font-bold" x-text="player.goals"></span>
+                                    </td>
+                                    <td class="py-2 px-4 text-right">
+                                        <div class="flex justify-end gap-1">
+                                            <button @click="incrementGoals(player.id)" class="w-8 h-8 flex items-center justify-center bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white rounded transition-all">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            </button>
+                                            <button @click="removePlayer(player.id)" class="w-8 h-8 flex items-center justify-center text-white/10 hover:text-red-500 hover:bg-red-500/10 rounded transition-all">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                            </button>
                                         </div>
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="flex justify-center pb-8">
-                                <button onClick={() => selectStadium(STADIUMS[0].url)} className="px-10 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2">
-                                    Omitir y usar predeterminado
-                                    <Icon name="ChevronRight" size={16} />
-                                </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                    <template x-if="players.length === 0">
+                        <div class="py-16 text-center text-[10px] font-black uppercase text-white/20 italic">Sin registros en la base de datos</div>
+                    </template>
+                </div>
+
+                <!-- Footer -->
+                <footer class="mt-8 flex flex-col items-center gap-4">
+                    <template x-if="!showResetConfirm && players.length > 0">
+                        <button @click="showResetConfirm = true" class="text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-red-400 transition-colors flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                            Reiniciar Planilla
+                        </button>
+                    </template>
+                    <template x-if="showResetConfirm">
+                        <div class="glass p-3 rounded-lg border-red-500/30 flex items-center gap-4">
+                            <span class="text-[10px] font-black uppercase text-red-400">¿Confirmar reset?</span>
+                            <div class="flex gap-2">
+                                <button @click="resetGoals()" class="px-4 py-1.5 bg-red-600 text-white text-[9px] font-black uppercase rounded">Sí</button>
+                                <button @click="showResetConfirm = false" class="px-4 py-1.5 bg-white/10 text-white text-[9px] font-black uppercase rounded">No</button>
                             </div>
                         </div>
-                    </div>
-                );
+                    </template>
+                </footer>
+            </main>
+        </div>
+    </template>
+
+    <script>
+        function trackerApp() {
+            return {
+                view: localStorage.getItem('fc-view') || 'selector',
+                background: localStorage.getItem('fc-background') || 'https://i.ibb.co/m5VmNDHP/concepto-hacer-deporte-23-2151937746-1.jpg',
+                title: localStorage.getItem('fc-scorer-title') || 'Temporada Febrero-Marzo',
+                players: JSON.parse(localStorage.getItem('fc-scorer-players') || '[]'),
+                newPlayerName: '',
+                isEditingTitle: false,
+                showResetConfirm: false,
+                activeCategory: 'Todas',
+                categories: ['Todas', 'LPF', 'Brasileirão', 'La Liga', 'Premier League', 'Bundesliga', 'Serie A', 'Ligue 1', 'MLS', 'Liga MX', 'Futbolistas'],
+                
+                stadiums: [
+                    { id: 'default', name: 'Predeterminado', url: 'https://i.ibb.co/m5VmNDHP/concepto-hacer-deporte-23-2151937746-1.jpg', category: 'General' },
+                    { id: 'messi', name: 'Messi', url: 'https://i.ibb.co/GfRRRzxn/wp12392314.png', category: 'Futbolistas' },
+                    { id: 'monu1', name: 'Mâs Monumental', url: 'https://i.ibb.co/0pK28kyy/Screenshot-20260327-004333-Google-1.jpg', category: 'LPF' },
+                    { id: 'monu2', name: 'Mâs Monumental 2', url: 'https://i.ibb.co/7t5twpNg/HD-wallpaper-river-el-monumental-river-plate.jpg', category: 'LPF' },
+                    { id: 'bombo', name: 'Bombonera', url: 'https://i.ibb.co/7xNwgCfm/9504e79e249033d4d04e227a622f89df.jpg', category: 'LPF' },
+                    { id: 'liber', name: 'Libertadores', url: 'https://i.ibb.co/HLhNvtJc/f919f8f8a600110daa86016c8d8e39c6.jpg', category: 'LPF' },
+                    { id: 'cilin', name: 'Cilindro', url: 'https://i.ibb.co/Mxmn1bt7/8c0613d8dd1432fee122287be21a2fff.jpg', category: 'LPF' },
+                    { id: 'gasom', name: 'Gasómetro', url: 'https://i.ibb.co/p6f57pfG/82084278f79cff23617f50a45a4afb14.jpg', category: 'LPF' },
+                    { id: 'neo', name: 'Neo Química', url: 'https://i.ibb.co/yBWbpMPh/962564b5eeea4f0da4f26b898b1e0325.jpg', category: 'Brasileirão' },
+                    { id: 'allianz', name: 'Allianz Parque', url: 'https://i.ibb.co/8nCLp4BD/66b8da8ebdbd647c76497a0a20ff30d0.jpg', category: 'Brasileirão' },
+                    { id: 'morum', name: 'Morumbis', url: 'https://i.ibb.co/rG1QKfpB/a8317f6d199347a079ededa55d9f39b6.jpg', category: 'Brasileirão' },
+                    { id: 'camp', name: 'Camp Nou', url: 'https://i.ibb.co/39nSr3QF/8b6ac40ce6862da956c40fffc9bd454a.jpg', category: 'La Liga' },
+                    { id: 'berna', name: 'Bernabéu', url: 'https://i.ibb.co/nMMshX5T/66d0d2d25a8941f58853fdf690592b59.jpg', category: 'La Liga' },
+                    { id: 'metro', name: 'Metropolitano', url: 'https://i.ibb.co/GvndxYFG/f65212658964e531f7d6f4a4a2331712.jpg', category: 'La Liga' },
+                    { id: 'psg', name: 'PSG', url: 'https://i.ibb.co/BbhD1L9/401f894d753b4a9faaf78f8481aecedc.jpg', category: 'Ligue 1' },
+                    { id: 'siro', name: 'San Siro', url: 'https://i.ibb.co/PbVtWYM/198412180c7bcb6567fe91fc5949864c.jpg', category: 'Serie A' },
+                    { id: 'bayern', name: 'Bayern', url: 'https://i.ibb.co/60G9014h/3e7227d504ea883430ddfc75f21926f6.jpg', category: 'Bundesliga' },
+                    { id: 'dort', name: 'Dortmund', url: 'https://i.ibb.co/84nF6dWM/HD-wallpaper-at-signal-iduna-park-borussia-dortmund-stadium.jpg', category: 'Bundesliga' },
+                    { id: 'city', name: 'Man City', url: 'https://i.ibb.co/9Hckp5Sh/46590e615b1d227322132dd4f018d975.jpg', category: 'Premier League' },
+                    { id: 'ars', name: 'Arsenal', url: 'https://i.ibb.co/vCspY0X5/bf6c1d428a5391f5da214387e48ef6dc.jpg', category: 'Premier League' },
+                    { id: 'miami', name: 'Inter Miami', url: 'https://i.ibb.co/KjMxsZHL/FUTBOL-MESSI-INTER-PARTIDO-scaled-e1690304081152-1.jpg', category: 'MLS' },
+                    { id: 'azteca', name: 'Azteca', url: 'https://i.ibb.co/ynjzH73p/e5ea5364.jpg', category: 'Liga MX' }
+                ],
+
+                init() {
+                    this.$watch('view', val => localStorage.setItem('fc-view', val));
+                    this.$watch('background', val => localStorage.setItem('fc-background', val));
+                    this.$watch('title', val => localStorage.setItem('fc-scorer-title', val));
+                    this.$watch('players', val => localStorage.setItem('fc-scorer-players', JSON.stringify(val)));
+                },
+
+                filteredStadiums() {
+                    if (this.activeCategory === 'Todas') return this.stadiums;
+                    return this.stadiums.filter(s => s.category === this.activeCategory);
+                },
+
+                selectStadium(url) {
+                    this.background = url;
+                    this.view = 'tracker';
+                },
+
+                addPlayer() {
+                    if (!this.newPlayerName.trim()) return;
+                    this.players.push({ id: Date.now(), name: this.newPlayerName.trim(), goals: 0 });
+                    this.newPlayerName = '';
+                },
+
+                incrementGoals(id) {
+                    const p = this.players.find(p => p.id === id);
+                    if (p) p.goals++;
+                },
+
+                removePlayer(id) {
+                    this.players = this.players.filter(p => p.id !== id);
+                },
+
+                resetGoals() {
+                    this.players.forEach(p => p.goals = 0);
+                    this.showResetConfirm = false;
+                },
+
+                sortedPlayers() {
+                    return [...this.players].sort((a, b) => b.goals - a.goals);
+                }
             }
-
-            return (
-                <div className="min-h-screen bg-cover bg-center bg-no-repeat selection:bg-green-500/30" style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(${background})` }}>
-                    <main className="max-w-3xl mx-auto px-2 py-4 animate-fade-in">
-                        <header className="flex items-center justify-between mb-4 px-2">
-                            <div className="flex items-center gap-3">
-                                {isEditingTitle ? (
-                                    <input ref={titleInputRef} type="text" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => setIsEditingTitle(false)} onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)} className="text-lg font-black bg-transparent border-b border-green-500 outline-none italic uppercase text-white" />
-                                ) : (
-                                    <h1 onClick={() => setIsEditingTitle(true)} className="text-lg font-black cursor-pointer hover:text-green-400 transition-colors italic uppercase tracking-tight text-white">{title}</h1>
-                                )}
-                            </div>
-                            <button onClick={() => setView('selector')} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white" title="Cambiar Estadio">
-                                <Icon name="Settings" size={16} />
-                            </button>
-                        </header>
-                        <section className="mb-4 px-2">
-                            <form onSubmit={addPlayer} className="flex gap-1">
-                                <input type="text" placeholder="Nuevo jugador..." value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} className="flex-1 h-8 px-3 text-xs bg-black/50 text-white border border-white/10 rounded-md outline-none focus:border-green-500/50 transition-all" />
-                                <button type="submit" className="h-8 px-4 bg-green-600 hover:bg-green-500 text-white text-[10px] font-black uppercase tracking-tighter rounded-md transition-all flex items-center gap-1">
-                                    <Icon name="UserPlus" size={12} />
-                                    Añadir
-                                </button>
-                            </form>
-                        </section>
-                        <section className="glass rounded-lg overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-white/5 border-b border-white/10">
-                                        <th className="py-2 px-3 text-[10px] font-black uppercase tracking-widest text-white/40 w-12 text-center">Pos</th>
-                                        <th className="py-2 px-3 text-[10px] font-black uppercase tracking-widest text-white/40">Jugador</th>
-                                        <th className="py-2 px-3 text-[10px] font-black uppercase tracking-widest text-white/40 w-20 text-center">Goles</th>
-                                        <th className="py-2 px-3 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-right">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedPlayers.map((player, index) => (
-                                        <tr key={player.id} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${index === 0 ? 'bg-green-500/10' : ''}`}>
-                                            <td className="py-1.5 px-3 text-center">
-                                                <span className={`inline-block w-5 h-5 leading-5 text-[10px] font-black rounded ${index === 0 ? 'bg-yellow-500 text-black' : index === 1 ? 'bg-gray-300 text-black' : index === 2 ? 'bg-orange-600 text-white' : 'bg-white/10 text-white/60'}`}>{index + 1}</span>
-                                            </td>
-                                            <td className="py-1.5 px-3">
-                                                <span className="text-xs font-bold uppercase tracking-tight block truncate max-w-[150px] sm:max-w-none text-white">{player.name}</span>
-                                            </td>
-                                            <td className="py-1.5 px-3 text-center">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <Icon name="Target" size={12} className={index === 0 ? 'text-green-400' : 'text-white/20'} />
-                                                    <span className="text-xs font-mono font-bold text-white">{player.goals}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-1.5 px-3 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => incrementGoals(player.id)} className="w-7 h-7 flex items-center justify-center bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white rounded transition-all active:scale-90"><Icon name="Plus" size={16} /></button>
-                                                    <button onClick={() => removePlayer(player.id)} className="w-7 h-7 flex items-center justify-center text-white/10 hover:text-red-500 hover:bg-red-500/10 rounded transition-all"><Icon name="Trash2" size={14} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {players.length === 0 && <div className="py-12 text-center text-[10px] font-black uppercase tracking-widest text-white/20 italic">Sin registros en la base de datos</div>}
-                        </section>
-                        {players.length > 0 && (
-                            <footer className="mt-6 flex flex-col items-center gap-3">
-                                {showResetConfirm ? (
-                                    <div className="glass flex items-center gap-3 p-2 rounded-lg border-red-500/20">
-                                        <span className="text-[10px] font-black uppercase tracking-tighter text-red-400">¿Confirmar reset?</span>
-                                        <div className="flex gap-1">
-                                            <button onClick={resetGoals} className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black uppercase rounded transition-all">Reset</button>
-                                            <button onClick={() => setShowResetConfirm(false)} className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase rounded transition-all">No</button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button onClick={() => setShowResetConfirm(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-red-400 transition-colors">
-                                        <Icon name="RotateCcw" size={12} />
-                                        Reiniciar Planilla
-                                    </button>
-                                )}
-                            </footer>
-                        )}
-                    </main>
-                </div>
-            );
         }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
     </script>
 </body>
 </html>
